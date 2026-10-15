@@ -112,11 +112,11 @@ try {
     await A.page.waitForFunction(b => [...document.querySelectorAll('canvas[data-animal]')].map(c => c.dataset.animal).join(',') !== b, before, { timeout: 8000 });
   });
 
-  await step('房主開始對戰 → 雙方同步「已開始」，再回到等待', async () => {
+  await step('房主開始對戰 → 雙方進入遊戲畫面；房主結束 → 雙方回到房間並需重新準備', async () => {
     await A.page.getByText('開始對戰!').click();
-    await waitText(B, '對戰進行中');
-    await waitText(B, '房主開始了對戰');
-    await A.page.getByText('結束對戰').click();
+    for (const p of [A, B]) await p.page.waitForFunction(() => ['live', 'replay'].includes(window.FurballNet.netDebug()?.phase), null, { timeout: 30000 });
+    await A.page.getByText('← 離開').first().click();
+    await waitText(A, '把房號傳給朋友就能加入');
     await waitText(B, '準備!');
     await waitText(A, '等待 1 位玩家準備');
   });

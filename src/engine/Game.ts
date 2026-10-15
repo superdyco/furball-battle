@@ -7,7 +7,7 @@ import { HP, EXPLOSION, PHYSICS, TURN, CRATES, weaponSpec, WEAPON_BY_ID } from '
 import { explosionFalloff, explosionDamage, explosionImpulse, fallDamage, damageCredit, hpAfterDamage, hpAfterHeal, displayHp, isDying } from '../systems/DamageSystem';
 import type {
   GameConfig, GameCallbacks, Team, Unit, Projectile, Particle, Flame, Mine, Crate, FloatText, Point,
-  AiState, AiPlan, Hud,
+  AiState, AiPlan, Hud, NetHooks,
 } from './types';
 
 const KEYMAP: Record<string, string> = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', Enter: 'jump', Space: 'fire' };
@@ -35,6 +35,8 @@ export class Game {
   kd!: (e: KeyboardEvent) => void; ku!: (e: KeyboardEvent) => void;
   jumpQ?: boolean; idle?: boolean; charging?: boolean; power = 0; target: Point | null = null;
   retreatT = 0; timeLeft = 0; settleT = 0; turnDmg?: number; ai: AiState | null = null; lastHud?: string;
+  /** 連線模式掛勾；本機模式為 undefined，所有行為與原版相同 */
+  net?: NetHooks;
 
   constructor(el: HTMLElement, cfg: GameConfig, cb?: GameCallbacks) {
     this.el = el; this.cfg = cfg; this.cb = cb || {};
@@ -66,9 +68,19 @@ export class Game {
     this.stars = Array.from({ length: 110 }, () => ({ x: this.R(), y: this.R(), r: this.R() * 1.6 + .4 }));
     this.bind(); this.resize(); this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
     this.nextTurn(); const u = this.active(); if (u) { this.camX = u.x - this.vw / this.s / 2; this.camY = u.y - this.vh / this.s / 2; }
-    this.last = performance.now(); this.loop = this.loop.bind(this); this.raf = requestAnimationFrame(this.loop);
+    this.last = performance.now(); this.loop = this.loop.bind(this);
+    // 連線模式由 NetGame 控制更新節奏（需配合網路進度），不自行啟動迴圈
+    this.raf = cfg.externalLoop ? 0 : requestAnimationFrame(this.loop);
   }
 
+  /** 以外部提供的碰撞遮罩取代目前地形（連線同步），外觀圖樣使用獨立亂數，不影響遊戲亂數 */
+  replaceMask(bits: Uint8Array) {
+    this.mask = bits;
+    const m = mk(W, H), mc = m.getContext('2d')!, img = mc.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) if (bits[i]) img.data[i * 4 + 3] = 255;
+    mc.putImageData(img, 0, 0);
+    this.terrain = paintTerrain(m, this.th, 1, rng(0x5eed)); this.tctx = this.terrain.getContext('2d')!;
+  }
   spawnPoints() {
     const pts: Point[] = [];
     for (let x = 40; x < W - 40; x += 8) { let prev = false; for (let y = 0; y < this.waterY - 30; y += 2) { const s = this.solid(x, y); if (s && !prev && y > 30 && !this.hitC(x, y - 12, HP.unitRadius)) pts.push({ x, y: y - 11 }); prev = s; } }
@@ -113,8 +125,15 @@ export class Game {
     }, { passive: false });
   }
   toW(e: { clientX: number; clientY: number }): Point { const r = this.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / this.s + this.camX, y: (e.clientY - r.top) / this.s + this.camY }; }
-  input(k: string, down: boolean) { if (this.isAI()) { this.keys = {}; return; } this.keys[k] = down; if (k === 'jump' && down) this.jumpQ = true; if (k === 'fire') down ? this.fireDown() : this.fireUp(); if (down) this.idle = false; }
-  selectWeapon(id: string) { const T = this.team(); if (!T || T.ai || T.ammo[id] === 0 || !WMAP[id]) return; T.weapon = id; this.target = null; this.charging = false; this.emit(); }
+  // ---- 玩家輸入入口（滑鼠、鍵盤、觸控按鈕）。連線模式下改由 net 在幀邊界套用並記錄，以便對手重播
+  input(k: string, down: boolean) { if (this.net) return this.net.ui(this, ['k', k, down ? 1 : 0]); this.applyKey(k, down); }
+  aimAt(p: Point) { if (this.net) return this.net.ui(this, ['p', p.x, p.y]); this.doAimAt(p); }
+  setTarget(p: Point) { if (this.net) return this.net.ui(this, ['t', p.x, p.y]); this.doSetTarget(p); }
+  fireDown() { if (this.net) return this.net.ui(this, ['fd']); this.doFireDown(); }
+  fireUp() { if (this.net) return this.net.ui(this, ['fu']); this.doFireUp(); }
+  selectWeapon(id: string) { if (this.net) return this.net.ui(this, ['w', id]); this.doSelectWeapon(id); }
+  applyKey(k: string, down: boolean) { if (this.isAI()) { this.keys = {}; return; } this.keys[k] = down; if (k === 'jump' && down) this.jumpQ = true; if (k === 'fire') down ? this.doFireDown() : this.doFireUp(); if (down) this.idle = false; }
+  doSelectWeapon(id: string) { const T = this.team(); if (!T || T.ai || T.ammo[id] === 0 || !WMAP[id]) return; T.weapon = id; this.target = null; this.charging = false; this.emit(); }
   active(): Unit | undefined { const t = this.teams[this.teamTurn]; return t && t.units[t.cur]; }
   team(): Team { return this.teams[this.teamTurn]; }
   isAI() { const t = this.team(); return !!(t && t.ai); }
@@ -125,8 +144,8 @@ export class Game {
   hitC(x: number, y: number, r: number) { if (this.solid(x, y)) return true; for (let i = 0; i < 12; i++) { const a = i * PI / 6; if (this.solid(x + Math.cos(a) * r, y + Math.sin(a) * r)) return true; } return false; }
   canAct() { const u = this.active(); return this.state === 'aim' && u && !u.dead && !u.grapple && !u.drill; }
   needsTarget() { if (this.state !== 'aim' || !this.team()) return false; const w = this.weapon(); return !!w.target && !(w.id === 'homing' && this.target); }
-  aimAt(p: Point) { const u = this.active(); if (this.isAI() || !u || u.dead || (this.state !== 'aim' && this.state !== 'retreat')) return; const dx = p.x - u.x, dy = p.y - u.y; if (Math.abs(dx) > 2) u.face = dx > 0 ? 1 : -1; u.aimA = clamp(Math.atan2(dy, Math.abs(dx)), -PHYSICS.aimLimit, PHYSICS.aimLimit); }
-  setTarget(p: Point) {
+  doAimAt(p: Point) { const u = this.active(); if (this.isAI() || !u || u.dead || (this.state !== 'aim' && this.state !== 'retreat')) return; const dx = p.x - u.x, dy = p.y - u.y; if (Math.abs(dx) > 2) u.face = dx > 0 ? 1 : -1; u.aimA = clamp(Math.atan2(dy, Math.abs(dx)), -PHYSICS.aimLimit, PHYSICS.aimLimit); }
+  doSetTarget(p: Point) {
     if (!this.canAct()) return; const w = this.weapon(), T = this.team(); if (T.ammo[w.id] === 0) return;
     if (w.id === 'homing') { this.target = p; this.say('目標已鎖定,蓄力發射!', 90); return; }
     if (w.id === 'airstrike') {
@@ -140,13 +159,13 @@ export class Game {
       this.consume(w); this.sparkle(u.x, u.y); u.x = p.x; u.y = p.y; u.vx = 0; u.vy = 0; u.air = true; this.sparkle(u.x, u.y); this.endAct(T_.retreatFrames);
     }
   }
-  fireDown() {
+  doFireDown() {
     if (!this.canAct()) return; const w = this.weapon(), T = this.team(); if (T.ammo[w.id] === 0) { this.say('沒有彈藥了', 60); return; }
     if (w.charge) { if (w.target && !this.target) { this.say('先點選目標位置', 80); return; } this.charging = true; this.power = 0; return; }
     if (w.target) { this.say('點擊地圖選擇位置', 80); return; }
     this.fire(0);
   }
-  fireUp() { if (this.charging) this.fire(this.power); }
+  doFireUp() { if (this.charging) this.fire(this.power); }
   consume(w: WeaponDef) { const T = this.team(); if (T.ammo[w.id] > 0) T.ammo[w.id]--; }
   endAct(t?: number) { this.state = 'retreat'; this.retreatT = t || TURN.retreatFrames; this.charging = false; }
   /** 依 GameBalance 的武器設定組出拋射物（欄位語意與原版相同：旗標以 1 表示） */
@@ -286,7 +305,12 @@ export class Game {
     }
   }
   dig(x: number, y: number, r: number) {
+    if (this.net) this.net.onDig(x, y, r);
     const c = this.tctx; c.save(); c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.globalCompositeOperation = 'source-atop'; c.strokeStyle = INK; c.lineWidth = 5; c.beginPath(); c.arc(x, y, r + 1.5, 0, 7); c.stroke(); c.restore();
+    this.digMask(x, y, r);
+  }
+  /** 只更新碰撞遮罩（不畫圖）；整數像素運算，任何瀏覽器結果都相同 */
+  digMask(x: number, y: number, r: number) {
     const r2 = r * r; for (let yy = Math.max(0, (y - r) | 0); yy <= Math.min(H - 1, y + r); yy++) { const dy = yy - y; for (let xx = Math.max(0, (x - r) | 0); xx <= Math.min(W - 1, x + r); xx++) { const dx = xx - x; if (dx * dx + dy * dy <= r2) this.mask[yy * W + xx] = 0; } }
   }
   explode(x: number, y: number, r: number, dmg: number, o?: ExplodeOpts) {
@@ -363,8 +387,10 @@ export class Game {
     if (this.cfg.crates && this.turnCount > 1 && this.R() < CRATES.dropChance) this.dropCrate();
     else this.say(`輪到 ${T.name}・${this.active()!.name}`, 110);
     this.emit();
+    if (this.net) this.net.onTurnStart(this);
   }
   step() {
+    if (this.net) this.net.beforeStep(this);
     this.frame++; const u = this.active();
     if (u && !u.dead && (this.state === 'aim' || this.state === 'retreat')) { if (this.isAI()) { if (this.state === 'aim') this.aiStep(u); } else this.control(u); }
     if (this.state === 'aim' && this.cfg.turnTime) { this.timeLeft -= 1 / PHYSICS.tickRate; if (this.timeLeft <= 0) { this.timeLeft = 0; this.charging = false; this.state = 'settle'; this.say('時間到!', 90); } }
@@ -393,7 +419,7 @@ export class Game {
     P.t++;
     if (P.phase === 'think') { if (P.t < 50) return; Object.assign(P, { tx: null, tset: false }, this.aiPlan(u, T, P.fails > 0)); P.t = 0; P.phase = 'act'; if (P.weapon && T.ammo[P.weapon] !== 0) { T.weapon = P.weapon; this.emit(); } return; }
     if (P.phase === 'act') {
-      if (P.tx != null && !P.tset) { if (P.t < 40) return; this.setTarget({ x: P.tx, y: P.ty! }); P.tset = true; if (P.weapon !== 'homing') { P.phase = 'done'; P.t = 0; } return; }
+      if (P.tx != null && !P.tset) { if (P.t < 40) return; this.doSetTarget({ x: P.tx, y: P.ty! }); P.tset = true; if (P.weapon !== 'homing') { P.phase = 'done'; P.t = 0; } return; }
       if (P.face) u.face = P.face; const d = (P.ang || 0) - u.aimA; u.aimA += clamp(d, -.035, .035); if (Math.abs(d) > .01 || P.t < 30) return;
       if (P.charge) { this.charging = true; this.power = 0; P.phase = 'charge'; } else { this.fire(0); P.phase = 'done'; P.t = 0; } return;
     }
@@ -446,6 +472,7 @@ export class Game {
     const T = this.team(), u = this.active(); if (!T) return;
     const h: Hud = {
       ai: T.ai || null, state: this.state, turn: this.teamTurn, unit: u ? u.name : '', time: Math.ceil(this.timeLeft), timer: !!this.cfg.turnTime, retreat: Math.ceil(this.retreatT / 60), wind: this.wind, weapon: T.weapon, ammo: { ...T.ammo }, msg: this.msgT > 0 ? this.msg : '', needTarget: this.needsTarget(),
+      ...(this.net ? { remote: this.net.isRemoteTurn(this) } : {}),
       teams: this.teams.map(t => ({ name: t.name, color: t.color, animal: t.animal, hp: t.units.reduce((a, u) => a + (u.dead ? 0 : displayHp(u.hp)), 0), max: t.units.length * (this.cfg.hp || HP.default), alive: t.units.filter(u => !u.dead).length })),
     };
     const s = JSON.stringify(h); if (s !== this.lastHud) { this.lastHud = s; this.cb.onHud && this.cb.onHud(h); }

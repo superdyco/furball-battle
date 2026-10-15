@@ -24,6 +24,8 @@ export interface GameConfig {
   ammo: Ammo;
   hp: number;
   seed?: number;
+  /** 連線模式：由外部（NetGame）驅動 step/render，不自行啟動 requestAnimationFrame */
+  externalLoop?: boolean;
 }
 
 export interface Team extends TeamConfig {
@@ -109,10 +111,33 @@ export interface AiState extends AiPlan {
   tset?: boolean;
 }
 
+/**
+ * 連線模式的玩家輸入事件（記錄於幀邊界，對手依幀號重播）
+ * k：按鍵 [名稱, 1=按下/0=放開]；p：滑鼠瞄準的世界座標（套用後轉成 a）；a：瞄準結果 [face, aimA]；
+ * fd/fu：發射鍵按下/放開；t：點選目標座標；w：切換武器
+ */
+export type NetEvent =
+  | ['k', string, 0 | 1] | ['p', number, number] | ['a', number, number]
+  | ['fd'] | ['fu'] | ['t', number, number] | ['w', string];
+
+export interface NetHooks {
+  /** UI 輸入：由連線層決定是否接受（只有輪到自己時），並在下一個幀邊界套用 */
+  ui(g: unknown, ev: NetEvent): void;
+  /** 每幀 step() 開始前呼叫：套用本機輸入並記錄，或重播對手輸入 */
+  beforeStep(g: unknown): void;
+  /** nextTurn() 結束時呼叫：回合交界的狀態校驗 */
+  onTurnStart(g: unknown): void;
+  /** 地形被挖：房主記錄挖洞紀錄，供對手重建地形 */
+  onDig(x: number, y: number, r: number): void;
+  isRemoteTurn(g: unknown): boolean;
+}
+
 export interface HudTeam { name: string; color: string; animal: string; hp: number; max: number; alive: number }
 export interface Hud {
   ai: AiLevel | null; state: string; turn: number; unit: string; time: number; timer: boolean; retreat: number;
   wind: number; weapon: string; ammo: Ammo; msg: string; needTarget: boolean; teams: HudTeam[];
+  /** 連線模式：目前是否為對手回合 */
+  remote?: boolean;
 }
 
 export interface MatchStat { name: string; color: string; animal: string; ai: AiLevel | null; dmg: number; kills: number; bestTurn: number; won: boolean }

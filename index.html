@@ -3563,8 +3563,18 @@ class Component extends DCLogic {
       // 建立、加入、或重新整理後自動回到房間
       if (this.state.mode !== 'online' || this.state.screen === 'lobby') { patch.mode = 'online'; patch.screen = 'room'; }
       if (room.settings && !room.isHost) { patch.theme = room.settings.theme; patch.rules = room.settings.rules; patch.ammo = { ...(this.state.ammo || {}), ...room.settings.ammo }; }
+      // 連線對戰：開始 → 進入遊戲畫面；房主開新局 → 重建引擎；結束 → 回到房間
+      const screen = patch.screen || this.state.screen, reset = { hud: null, over: false, winner: null, showWeapons: false, netMsg: '' };
+      if (room.match) {
+        if (this.engineMatchId && this.engineMatchId !== room.match.id) { this.stopEngine(); Object.assign(patch, reset); }
+        if (screen === 'room') Object.assign(patch, reset, { screen: 'game' });
+      } else if (this.engineMatchId) {
+        this.stopEngine();
+        if (screen === 'game') Object.assign(patch, reset, { screen: 'room' });
+      }
     } else if (prev && prev.room && this.state.mode === 'online') {
-      patch.mode = 'local'; patch.screen = 'lobby';
+      this.stopEngine();
+      patch.mode = 'local'; patch.screen = 'lobby'; patch.hud = null; patch.over = false;
     }
     this.setState(patch);
   }
@@ -3582,8 +3592,8 @@ class Component extends DCLogic {
     const R0 = this.onlineRoom(), N = window.FurballNet;
     if (!R0) return this.startGame();
     if (R0.isHost) {
-      if (R0.status === 'playing') return N.setStatus('waiting');
-      if (R0.players.length >= 2 && R0.players.every(p => p.ready && p.online)) return N.setStatus('playing');
+      if (R0.status === 'playing') return N.endMatch();
+      if (R0.players.length >= 2 && R0.players.every(p => p.ready && p.online)) return N.startMatch(this.NAMES).catch(() => {});
       return;
     }
     if (R0.status !== 'waiting') return;
@@ -3602,7 +3612,7 @@ class Component extends DCLogic {
     if (settingsKey && settingsKey !== this.lastSettingsKey) window.FurballNet.updateSettings(this.roomSettings());
     this.lastSettingsKey = settingsKey;
   }
-  componentWillUnmount() { if (this.unsubNet) this.unsubNet(); window.removeEventListener('resize', this.onResize); this.timers.forEach(clearTimeout); if (this.engine) this.engine.destroy(); }
+  componentWillUnmount() { if (this.unsubNet) this.unsubNet(); window.removeEventListener('resize', this.onResize); this.timers.forEach(clearTimeout); this.stopEngine(); }
 
   paint() {
     const FE = window.FurballEngine; if (!FE) return;
@@ -3637,16 +3647,28 @@ class Component extends DCLogic {
     this.setState({ screen: 'game', hud: null, over: false, winner: null, showWeapons: false });
   }
   ensureEngine() {
-    const el = this.gameRef.current, FE = window.FurballEngine;
-    if (!el || !FE || !this.cfg) return;
-    this.cfg.seed = Math.floor(Math.random() * 1e9); this.recorded = false;
-    this.engine = FE.create(el, this.cfg, {
+    const el = this.gameRef.current, FE = window.FurballEngine, R0 = this.onlineRoom();
+    if (!el || !FE) return;
+    const cbs = {
       onHud: hud => this.setState({ hud }),
       onGameOver: (w, stats) => { this.setState({ over: true, winner: w }); this.recordStats(stats); },
       onToggleWeapons: () => this.setState(s => ({ showWeapons: !s.showWeapons }))
-    });
+    };
+    if (R0 && R0.match) {
+      // 連線對戰：引擎由 FurballNet 建立並同步
+      this.recorded = false; this.engineMatchId = R0.match.id;
+      try { this.engine = window.FurballNet.createNetGame(el, { ...cbs, onNetStatus: m => this.setState({ netMsg: m }) }); }
+      catch (e) { this.engineMatchId = null; this.setState({ netMsg: String(e.message || e) }); }
+      return;
+    }
+    if (!this.cfg) return;
+    this.cfg.seed = Math.floor(Math.random() * 1e9); this.recorded = false;
+    this.engine = FE.create(el, this.cfg, cbs);
   }
-  stopEngine() { if (this.engine) { this.engine.destroy(); this.engine = null; } }
+  stopEngine() {
+    if (this.engineMatchId) { window.FurballNet.destroyNetGame(); this.engineMatchId = null; this.engine = null; return; }
+    if (this.engine) { this.engine.destroy(); this.engine = null; }
+  }
 
   renderVals() {
     const st = this.state, FE = window.FurballEngine;
@@ -3702,7 +3724,7 @@ class Component extends DCLogic {
       const waitN = R0.players.filter(p => !p.ready || !p.online).length, me = R0.players.find(p => p.isMe);
       if (R0.status === 'playing') {
         startLabel = R0.isHost ? '結束對戰' : '對戰進行中'; startBg = R0.isHost ? '#ff7a1a' : '#c9b89a';
-        startHint = '連線對戰畫面將於 M3 開放;目前只同步「已開始」狀態';
+        startHint = '對戰進行中';
       } else if (R0.isHost) {
         startBg = R0.players.length >= 2 && waitN === 0 ? '#ff7a1a' : '#c9b89a';
         startHint = R0.players.length < 2 ? `把房號 ${R0.code} 傳給朋友` : waitN ? `等待 ${waitN} 位玩家準備…` : '全員已準備,可以開始!';
@@ -3756,16 +3778,27 @@ class Component extends DCLogic {
       startBg, startHint, startLabel,
 
       gameRef: this.gameRef,
-      leaveGame: () => { this.stopEngine(); this.setState({ screen: 'room', hud: null, over: false, showWeapons: false }); },
-      restart: () => { this.stopEngine(); this.setState({ over: false, winner: null, hud: null }, () => this.ensureEngine()); },
+      leaveGame: () => {
+        if (R0 && R0.match) {
+          // 房主：結束對戰回到房間；其他玩家：離開房間（視同棄權）
+          if (R0.isHost) N.endMatch();
+          else { this.stopEngine(); N.leaveRoom(); this.setState({ screen: 'lobby', mode: 'local', hud: null, over: false, showWeapons: false }); }
+          return;
+        }
+        this.stopEngine(); this.setState({ screen: 'room', hud: null, over: false, showWeapons: false });
+      },
+      restart: () => {
+        if (R0 && R0.match) { if (R0.isHost) N.startMatch(this.NAMES).catch(() => {}); else this.setState({ netMsg: '等待房主開始新的一局…' }); return; }
+        this.stopEngine(); this.setState({ over: false, winner: null, hud: null }, () => this.ensureEngine());
+      },
       hudTeams: h ? h.teams.map(t => ({ name: t.name, color: t.color, hp: t.hp, pct: Math.min(100, t.hp / t.max * 100) + '%', op: t.alive ? 1 : .4 })) : [],
-      turnColor: ht ? ht.color : '#888', turnLabel: ht ? `${ht.name}・${h.unit}${h.ai ? '(電腦)' : ''}` : '準備中',
+      turnColor: ht ? ht.color : '#888', turnLabel: ht ? `${ht.name}・${h.unit}${h.ai ? '(電腦)' : h.remote === true ? '(對手)' : h.remote === false ? '(你)' : ''}` : '準備中',
       timeText: !h ? '' : h.state === 'aim' ? (h.timer ? h.time : '∞') : h.state === 'retreat' ? h.retreat : '…',
       timeColor: h && h.state === 'aim' && h.timer && h.time <= 5 ? '#e53935' : '#2b1d14',
       windText: wind === 0 ? '無風' : (wind > 0 ? '→ ' : '← ') + Math.round(Math.abs(wind) * 10),
       windLeft: wind >= 0 ? '50%' : (50 + wind * 50) + '%', windWidth: Math.abs(wind) * 50 + '%',
-      hasMsg: !!(h && h.msg), hudMsg: h ? h.msg : '',
-      showKeyHint: !isTouch, showTouch: isTouch && !(h && h.ai),
+      hasMsg: !!(st.netMsg || (h && h.msg)), hudMsg: st.netMsg || (h ? h.msg : ''),
+      showKeyHint: !isTouch, showTouch: isTouch && !(h && (h.ai || h.remote)),
       weaponBtnBottom: isTouch ? '136px' : '12px', weaponBtnRight: '12px', panelBottom: isTouch ? '200px' : '84px',
       narrow: st.narrow,
       roomTabs: [['players', '玩家'], ['terrain', '地形'], ['weapons', '武器'], ['rules', '規則']].map(([k, label]) => ({ label, bg: st.roomTab === k ? '#2b1d14' : '#fff', fg: st.roomTab === k ? '#fff' : '#2b1d14', pick: () => { this.setState({ roomTab: k }); window.scrollTo(0, 0); } })),

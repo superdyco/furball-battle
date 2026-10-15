@@ -206,3 +206,50 @@ describe('使用者資料', () => {
     await assertFails(get(ref(db('bob'), 'users/alice')));
   });
 });
+
+describe('連線對戰（game 節點）', () => {
+  const init = { id: 'm1', v: 1, seed: 123, theme: 'grass', units: 4, turnTime: 45, gravity: 1, wind: true, water: true, fall: true, weapons: ['bazooka'], teams: [{ uid: 'alice' }, { uid: 'bob' }] };
+  const start = (active: string) => ({ snap: '{}', hash: 'abc', active, digs: '[]' });
+  const chunk = { f: 10, e: '[]' };
+  async function seedMatch() {
+    await seedRoom({ alice: { seat: '0' }, bob: { seat: '1' } }, { status: 'playing' });
+    await seed(`rooms/${CODE}/game`, { init, mask0: '1,2', turn: 1, starts: { 1: start('bob') } });
+  }
+
+  it('房主可以開始對戰並公布狀態，其他人不行', async () => {
+    await seedRoom({ alice: { seat: '0' }, bob: { seat: '1' } });
+    await assertFails(update(ref(db('bob'), `rooms/${CODE}`), { game: { init }, 'meta/status': 'playing' }));
+    await assertSucceeds(update(ref(db('alice'), `rooms/${CODE}`), { game: { init }, 'meta/status': 'playing' }));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/starts/2`), start('bob')));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/go/1`), true));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/result`), { w: 'null', stats: '[]', turn: 3 }));
+    await assertSucceeds(set(ref(db('alice'), `rooms/${CODE}/game/starts/1`), start('alice')));
+    await assertSucceeds(set(ref(db('alice'), `rooms/${CODE}/game/go/1`), true));
+  });
+
+  it('只能回報自己的確認，房外的人不行', async () => {
+    await seedMatch();
+    await assertSucceeds(set(ref(db('bob'), `rooms/${CODE}/game/acks/1/bob`), 'abc'));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/acks/1/alice`), 'abc'));
+    await assertFails(set(ref(db('mallory'), `rooms/${CODE}/game/acks/1/mallory`), 'abc'));
+  });
+
+  it('只有輪到的玩家能送出輸入，且不能覆寫已送出的資料', async () => {
+    await seedMatch();
+    await assertSucceeds(set(ref(db('bob'), `rooms/${CODE}/game/in/1/c00000`), chunk));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/in/1/c00000`), { f: 99, e: '[]' }));
+    await assertFails(set(ref(db('mallory'), `rooms/${CODE}/game/in/1/c00001`), chunk));
+    // 房主不是這回合的操作者，但房主對 game 節點有完整權限（房主權威）
+    await assertSucceeds(set(ref(db('alice'), `rooms/${CODE}/game/in/1/c00001`), chunk));
+    // 不是輪到自己的回合
+    await seed(`rooms/${CODE}/game/starts/2`, start('alice'));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/in/2/c00000`), chunk));
+  });
+
+  it('輸入資料格式驗證', async () => {
+    await seedMatch();
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/in/1/x1`), chunk));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/in/1/c00002`), { f: 'x', e: '[]' }));
+    await assertFails(set(ref(db('bob'), `rooms/${CODE}/game/in/1/c00003`), { f: 1, e: '[]', hp: 999 }));
+  });
+});

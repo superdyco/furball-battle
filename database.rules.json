@@ -94,6 +94,53 @@
           }
         },
 
+        "game": {
+          ".write": "auth != null && data.parent().child('meta/host').val() === auth.uid",
+          "init": {
+            ".validate": "newData.hasChildren(['id', 'v', 'seed', 'theme', 'units', 'turnTime', 'gravity', 'wind', 'water', 'fall', 'weapons', 'teams'])",
+            "id": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "seed": { ".validate": "newData.isNumber()" },
+            "theme": { ".validate": "newData.isString() && newData.val().matches(/^[a-z]{2,12}$/)" },
+            "units": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 8" },
+            "turnTime": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 90" }
+          },
+          "mask0": { ".validate": "newData.isString() && newData.val().length <= 400000" },
+          "turn": { ".validate": "newData.isNumber() && newData.val() >= 1" },
+          "starts": {
+            "$n": {
+              ".validate": "$n.matches(/^[1-9][0-9]{0,4}$/) && newData.hasChildren(['snap', 'hash', 'active', 'digs'])",
+              "snap": { ".validate": "newData.isString() && newData.val().length <= 30000" },
+              "hash": { ".validate": "newData.isString() && newData.val().length <= 32" },
+              "active": { ".validate": "newData.isString()" },
+              "digs": { ".validate": "newData.isString() && newData.val().length <= 200000" },
+              "$other": { ".validate": false }
+            }
+          },
+          "go": { "$n": { ".validate": "newData.val() === true" } },
+          "acks": {
+            "$n": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid && data.parent().parent().parent().parent().child('players').child($uid).exists()",
+                ".validate": "newData.isString() && newData.val().length <= 32"
+              }
+            }
+          },
+          "in": {
+            "$n": {
+              "$c": {
+                ".write": "auth != null && !data.exists() && data.parent().parent().parent().child('starts').child($n).child('active').val() === auth.uid",
+                ".validate": "$c.matches(/^c[0-9]{5}$/) && newData.hasChildren(['f', 'e'])",
+                "f": { ".validate": "newData.isNumber()" },
+                "e": { ".validate": "newData.isString() && newData.val().length <= 20000" },
+                "end": { ".validate": "newData.isBoolean()" },
+                "$other": { ".validate": false }
+              }
+            }
+          },
+          "result": { ".validate": "newData.hasChildren(['w', 'stats', 'turn'])" },
+          "$other": { ".validate": false }
+        },
+
         "$other": { ".validate": false }
       }
     }

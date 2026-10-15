@@ -4,13 +4,20 @@ export const W = PHYSICS.mapWidth, H = PHYSICS.mapHeight, INK = '#2b1d14', PI = 
 
 export const clamp = (v: number, a: number, b: number) => v < a ? a : v > b ? b : v;
 
-export type Rng = () => number;
+export type Rng = (() => number) & {
+  /** 目前的內部狀態（連線同步用） */
+  getState(): number;
+  setState(s: number): void;
+};
 
 // xorshift32；所有遊戲隨機（地形、出生點、風、空投、粒子、AI）共用同一個實例，
 // 呼叫順序即遊戲結果的一部分，不可任意增減或重排 R() 呼叫。
 export function rng(seed: number): Rng {
   let s = (seed >>> 0) || 123456789;
-  return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  const R = (() => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }) as Rng;
+  R.getState = () => s;
+  R.setState = v => { s = v >>> 0; };
+  return R;
 }
 
 export function mk(w: number, h: number): HTMLCanvasElement {

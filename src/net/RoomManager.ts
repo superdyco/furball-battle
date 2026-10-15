@@ -5,8 +5,13 @@ import {
   type Unsubscribe, type DataSnapshot,
 } from 'firebase/database';
 import { firebase, signIn, serverNow, watchServerTime, onConnection } from './FirebaseService';
+import { NetGame, type MatchInit, type NetGameCallbacks } from './NetGame';
+import type { Game } from '../engine/Game';
 
 export const ROOM_DEFAULT_MAX_PLAYERS = 2;
+/** M3：連線對戰固定使用的地圖與武器（M4 再開放全部） */
+export const MATCH_THEME = 'grass';
+export const MATCH_WEAPONS = ['bazooka'];
 /** 房間閒置多久後可被新房間覆用（房主每次有動作會延長） */
 const ROOM_TTL_MS = 12 * 3600_000;
 /** 房主離線超過此時間，房內其他玩家自動接手房主（避免房主只是重新整理頁面就被換掉） */
@@ -29,6 +34,8 @@ export interface RoomView {
   code: string; maxPlayers: number; status: 'waiting' | 'playing';
   hostUid: string; isHost: boolean; myUid: string;
   players: RoomPlayer[]; chat: ChatLine[]; settings: RoomSettings | null;
+  /** 進行中的連線對戰（status 為 playing 時） */
+  match: MatchInit | null;
 }
 export interface NetState {
   /** offline：尚未連線；connecting：登入中；online：已連線；error：無法連線 */
@@ -66,6 +73,8 @@ export class RoomManager {
   private meta: RawMeta | null = null;
   private players: Record<string, RawPlayer> = {};
   private settings: RoomSettings | null = null;
+  private match: MatchInit | null = null;
+  private netGame: NetGame | null = null;
   private chat: ChatLine[] = [];
   private systemLines: ChatLine[] = [];
   private subs: Unsubscribe[] = [];
@@ -251,14 +260,47 @@ export class RoomManager {
     await set(ref(firebase().db, `rooms/${this.code}/settings`), s).catch(e => this.fail('設定同步失敗：' + describe(e)));
   }
 
-  /** 房主：開始對戰／回到等待。M2 只同步狀態，連線對戰畫面於 M3 實作 */
-  async setStatus(status: 'waiting' | 'playing') {
+  /** 房主：開始連線對戰（全員在線且已準備）。unitNames 為各動物的角色名稱表 */
+  async startMatch(unitNames: Record<string, string[]>) {
     if (!this.code || this.meta?.host !== this.uid) return;
-    const { db } = firebase();
-    await update(ref(db, `rooms/${this.code}/meta`), { status, expireAt: serverNow() + ROOM_TTL_MS })
-      .catch(e => this.fail('操作失敗：' + describe(e)));
-    // 回到等待時，所有非房主玩家需要重新按準備 —— 由各自客戶端在看到狀態改變時處理
+    const players = Object.entries(this.players).sort(([, a], [, b]) => Number(a.seat) - Number(b.seat));
+    if (players.length < 2) throw this.fail('至少需要 2 位玩家');
+    const rules = this.settings?.rules;
+    const init: MatchInit = {
+      id: Math.random().toString(36).slice(2, 10), v: 1, seed: 1 + Math.floor(Math.random() * 2e9), theme: MATCH_THEME,
+      units: rules?.units ?? 4, turnTime: rules?.turnTime ?? 45, gravity: rules?.gravity ?? 1,
+      wind: rules?.wind ?? true, water: rules?.water ?? true, fall: rules?.fall ?? true,
+      weapons: MATCH_WEAPONS,
+      teams: players.map(([uid, p]) => ({ uid, name: p.name, color: p.color, animal: p.animal, unitNames: (unitNames[p.animal] || ['毛球']).slice(0, 8) })),
+    };
+    await update(ref(firebase().db, `rooms/${this.code}`), { game: { init }, 'meta/status': 'playing', 'meta/expireAt': serverNow() + ROOM_TTL_MS })
+      .catch(e => { throw this.fail('開始對戰失敗：' + describe(e)); });
   }
+
+  /** 房主：結束對戰並回到等待 */
+  async endMatch() {
+    if (!this.code || this.meta?.host !== this.uid) return;
+    await update(ref(firebase().db, `rooms/${this.code}`), { game: null, 'meta/status': 'waiting' })
+      .catch(e => this.fail('結束對戰失敗：' + describe(e)));
+  }
+
+  /** 建立本機的連線對戰引擎（UI 在進入遊戲畫面時呼叫） */
+  createNetGame(el: HTMLElement, cb: NetGameCallbacks): Game {
+    this.destroyNetGame();
+    if (!this.code || !this.uid || !this.match) throw new Error('沒有進行中的對戰');
+    const ng = new NetGame({
+      db: firebase().db, code: this.code, uid: this.uid, init: this.match,
+      isHost: () => this.meta?.host === this.uid,
+      onlineUids: () => Object.entries(this.players).filter(([, p]) => p.online).map(([u]) => u),
+      nameOf: u => this.players[u]?.name || '對手',
+    }, cb);
+    this.netGame = ng;
+    return ng.create(el);
+  }
+  destroyNetGame() { this.netGame?.destroy(); this.netGame = null; }
+  /** 除錯／測試用 */
+  netDebug() { return this.netGame?.debug() ?? null; }
+  netGameEngine() { return this.netGame?.game ?? null; }
 
   private async updateMe(p: Partial<RawPlayer>) {
     if (!this.code || !this.uid || !this.players[this.uid]) return;
@@ -271,13 +313,14 @@ export class RoomManager {
     this.detach();
     const { db } = firebase();
     const uid = this.uid!;
-    this.code = code; this.meta = null; this.players = {}; this.settings = null; this.chat = []; this.systemLines = [];
+    this.code = code; this.meta = null; this.players = {}; this.settings = null; this.match = null; this.chat = []; this.systemLines = [];
     this.loaded = { meta: false, players: false };
     const base = `rooms/${code}`;
 
     this.subs.push(onValue(ref(db, `${base}/meta`), s => { this.onMeta(s); }));
     this.subs.push(onValue(ref(db, `${base}/players`), s => { this.onPlayers(s); }));
     this.subs.push(onValue(ref(db, `${base}/settings`), s => { this.settings = s.val(); this.emitRoom(); }));
+    this.subs.push(onValue(ref(db, `${base}/game/init`), s => { this.match = s.val(); this.emitRoom(); }));
     this.subs.push(onValue(query(ref(db, `${base}/chat`), limitToLast(CHAT_LIMIT)), s => {
       const lines: ChatLine[] = [];
       s.forEach(c => { const m = c.val(); lines.push({ who: m.name, text: m.text, color: m.color, ts: m.ts }); });
@@ -311,7 +354,7 @@ export class RoomManager {
       this.sys(`${h ? h.name : '新房主'} 成為房主`);
     }
     if (prev && prev.status !== this.meta.status) {
-      if (this.meta.status === 'playing') this.sys('房主開始了對戰（連線對戰畫面將於 M3 開放）');
+      if (this.meta.status === 'playing') this.sys('對戰開始!');
       else {
         this.sys('回到等待狀態，請重新準備');
         if (this.meta.host !== this.uid) this.setReady(false);
@@ -321,6 +364,7 @@ export class RoomManager {
     if (this.meta.host === this.uid && this.players[this.uid!] && !this.players[this.uid!].ready) this.setReady(true);
     this.checkHost();
     this.emitRoom();
+    this.netGame?.onRoomChange();
   }
 
   private onPlayers(s: DataSnapshot) {
@@ -338,7 +382,13 @@ export class RoomManager {
     this.loaded.players = true;
     if (this.uid && !next[this.uid]) { this.kickedOut('你已不在這個房間（被房主移出或座位已失效）'); return; }
     this.checkHost();
+    // 對戰中有人離開房間：房主結束對戰
+    if (this.meta?.status === 'playing' && this.meta.host === this.uid && Object.keys(next).length < 2) {
+      this.sys('對手離開了房間,對戰結束');
+      this.endMatch();
+    }
     this.emitRoom();
+    this.netGame?.onRoomChange();
   }
 
   /** 房主不在或離線過久時，由座位最前面的在線玩家接手 */
@@ -366,12 +416,13 @@ export class RoomManager {
   }
 
   private detach() {
+    this.destroyNetGame();
     for (const off of this.subs) off();
     this.subs = [];
     if (this.hostTimer) clearTimeout(this.hostTimer);
     if (this.expireTimer) clearInterval(this.expireTimer);
     this.hostTimer = null; this.expireTimer = null;
-    this.code = null; this.meta = null; this.players = {};
+    this.code = null; this.meta = null; this.players = {}; this.match = null;
   }
 
   private sys(text: string) {
@@ -389,7 +440,7 @@ export class RoomManager {
     this.patch({
       room: {
         code: this.code, maxPlayers: this.meta.maxPlayers, status: this.meta.status, hostUid: host, isHost: host === uid, myUid: uid,
-        players, chat, settings: this.settings,
+        players, chat, settings: this.settings, match: this.meta.status === 'playing' ? this.match : null,
       },
     });
   }
