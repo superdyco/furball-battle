@@ -1,0 +1,20 @@
+{
+  "name": "furball-battle",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "unbundle": "node tools/unbundle.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.11",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^5.0.4"
+  }
+}
