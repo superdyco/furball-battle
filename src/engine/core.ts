@@ -1,4 +1,6 @@
-export const W = 1800, H = 900, INK = '#2b1d14', PI = Math.PI;
+import { PHYSICS } from '../config/GameBalance';
+
+export const W = PHYSICS.mapWidth, H = PHYSICS.mapHeight, INK = '#2b1d14', PI = Math.PI;
 
 export const clamp = (v: number, a: number, b: number) => v < a ? a : v > b ? b : v;
 

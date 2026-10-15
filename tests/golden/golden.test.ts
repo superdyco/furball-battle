@@ -1,9 +1,17 @@
 // 原版 bundle 引擎 vs 重構後引擎：同 seed、同輸入，逐幀狀態必須完全一致。
 import { describe, it, expect } from 'vitest';
-import { compareRuns } from './harness';
+import { compareRuns, loadOriginal, loadRefactored } from './harness';
 import { SCENARIOS, ALL_WEAPONS } from './scenarios';
 
 describe('golden master：重構後行為與原版完全一致', () => {
+  it('對外 API 的資料表（大廳 UI 使用）與原版相同', () => {
+    const a = loadOriginal(), b = loadRefactored();
+    expect(b.WEAPONS).toEqual(a.WEAPONS);
+    expect(b.THEMES).toEqual(a.THEMES);
+    expect(b.ANIMALS).toEqual(a.ANIMALS);
+    expect(Object.keys(b).sort()).toEqual([...Object.keys(a), 'BALANCE'].sort());
+  });
+
   for (const sc of SCENARIOS) {
     it(sc.name, () => {
       const r = compareRuns(sc);

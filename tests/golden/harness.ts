@@ -61,6 +61,12 @@ function hashBytes(a: ArrayLike<number>) {
   return h >>> 0;
 }
 
+// 物件屬性順序不影響遊戲行為：序列化時一律依鍵名排序，並略過 undefined
+const sortKeys = (_k: string, v: any) => v && typeof v === 'object' && !Array.isArray(v)
+  ? Object.fromEntries(Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => [k, v[k]]))
+  : v;
+export const canonical = (v: unknown) => JSON.stringify(v, sortKeys);
+
 export function snapshot(g: any) {
   const unitKey = (u: any) => u ? `${u.team.idx}:${u.name}` : null;
   return {
@@ -128,7 +134,7 @@ export function run(api: any, sc: Scenario, stopAt = Infinity): { result: RunRes
       if (game.state === 'over') break;
       sc.script?.(game, f, mem);
       try { game.step(); } catch (e) { crash = `${f}: ${String(e)}`; break; }
-      frameHashes.push(fnv(JSON.stringify(snapshot(game))));
+      frameHashes.push(fnv(canonical(snapshot(game))));
       if (f % 120 === 0) maskHashes.push(maskHash(game));
       if (sc.renderEvery && f % sc.renderEvery === 0) {
         game.render();
@@ -157,7 +163,7 @@ export function compareRuns(sc: Scenario) {
       const sa = snapshot(run(orig, sc, i + 1).game), sb = snapshot(run(next, sc, i + 1).game);
       const diff: string[] = [];
       for (const k of Object.keys(sa)) {
-        const x = JSON.stringify((sa as any)[k]), y = JSON.stringify((sb as any)[k]);
+        const x = canonical((sa as any)[k]), y = canonical((sb as any)[k]);
         if (x !== y) diff.push(`${k}:\n  原版 ${x.slice(0, 400)}\n  新版 ${y.slice(0, 400)}`);
       }
       return { ok: false as const, a, b, message: `第 ${i} 幀分歧\n${diff.join('\n')}` };

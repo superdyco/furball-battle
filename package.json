@@ -9,12 +9,16 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "unbundle": "node tools/unbundle.mjs"
+    "unbundle": "node tools/unbundle.mjs",
+    "test:golden": "vitest run tests/golden",
+    "test:unit": "vitest run tests/unit",
+    "smoke": "node tools/smoke.mjs http://localhost:4173/ .smoke 90"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.0.11",
+    "playwright-core": "^1.64.1",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5",
+    "vite": "^6.4.4",
     "vitest": "^5.0.4"
   }
 }

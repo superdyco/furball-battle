@@ -3549,7 +3549,8 @@ class Component extends DCLogic {
     const poll = () => {
       if (window.FurballEngine) {
         const ammo = {}; window.FurballEngine.WEAPONS.forEach(w => ammo[w.id] = w.ammo);
-        this.setState({ engineReady: true, ammo }, () => {
+        const B = window.FurballEngine.BALANCE;
+        this.setState(s => ({ engineReady: true, ammo, rules: { ...s.rules, units: B.HP.unitsPerTeam, turnTime: B.TURN.defaultSeconds, fall: B.FALL.enabledDefault } }), () => {
           const s = this.props.startScreen;
           if (s === 'room') this.createRoom(true);
           if (s === 'game') { this.createRoom(true); this.setState(st => ({ slots: [...st.slots, { ...this.mkPlayer(this.CPUS[0], 'cpu', true), level: 'normal' }] }), () => this.startGame(true)); }
@@ -3621,7 +3622,7 @@ class Component extends DCLogic {
     this.cfg = {
       teams: slots.map(p => ({ name: p.name, color: p.color, animal: p.animal, unitNames: this.NAMES[p.animal], ai: p.kind === 'cpu' ? (p.level || 'normal') : null })),
       themeId: this.state.theme, unitsPerTeam: rules.units, turnTime: rules.turnTime, gravity: rules.gravity,
-      wind: rules.wind, waterRise: rules.water, crates: rules.crates, fallDamage: rules.fall, ammo: { ...this.state.ammo }, hp: 100
+      wind: rules.wind, waterRise: rules.water, crates: rules.crates, fallDamage: rules.fall, ammo: { ...this.state.ammo }, hp: FE.BALANCE.HP.default
     };
     this.timers.forEach(clearTimeout); this.timers = [];
     this.setState({ screen: 'game', hud: null, over: false, winner: null, showWeapons: false });
@@ -3698,7 +3699,7 @@ class Component extends DCLogic {
       themeName: theme ? theme.name : '',
       terrainRows: THEMES.map(t => ({ id: t.id, name: t.name, tag: t.grav < 1 ? `低重力 ×${t.grav}` : '', bg: st.theme === t.id ? '#ffd23f' : '#fffaf0', shadow: st.theme === t.id ? '4px 4px 0 #2b1d14' : 'none', lift: st.theme === t.id ? 'translate(-2px,-2px)' : 'none', select: () => this.setState({ theme: t.id }) })),
       weaponRows: WEAPONS.map(w => { const a = st.ammo ? st.ammo[w.id] : w.ammo; return { ...w, ammoText: ammoText(a), opacity: a === 0 ? .45 : 1, ammoBg: a === 0 ? '#ddd' : a === -1 ? '#ffd23f' : '#fff', toggle: () => { const i = this.AMMO_STEPS.indexOf(a); const nx = this.AMMO_STEPS[(i + 1) % this.AMMO_STEPS.length]; this.setState(s => ({ ammo: { ...s.ammo, [w.id]: nx } })); } }; }),
-      units: R.units, unitsDec: () => setR('units', Math.max(1, R.units - 1)), unitsInc: () => setR('units', Math.min(8, R.units + 1)),
+      units: R.units, unitsDec: () => setR('units', Math.max(FE.BALANCE.HP.unitsPerTeamMin, R.units - 1)), unitsInc: () => setR('units', Math.min(FE.BALANCE.HP.unitsPerTeamMax, R.units + 1)),
       timeOpts: seg([['30', 30], ['45', 45], ['60', 60], ['90', 90], ['∞', 0]], 'turnTime'),
       gravOpts: seg([['低', .6], ['標準', 1], ['高', 1.4]], 'gravity'),
       toggleRows: [['風向影響', 'wind'], ['水位上升', 'water'], ['空投補給箱', 'crates'], ['掉落傷害', 'fall']].map(([label, k]) => ({ label, bg: R[k] ? '#22b8a6' : '#e5dccb', knob: R[k] ? '24px' : '2px', toggle: () => setR(k, !R[k]) })),
