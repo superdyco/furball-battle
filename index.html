@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html><head>
 <title>毛球大砲戰</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script>window.__resources = {"https://unpkg.com/react@18.3.1/umd/react.production.min.js":"/vendor/react.production.min.js","https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js":"/vendor/react-dom.production.min.js"};</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -3045,7 +3046,7 @@ input{font-family:inherit}
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
     <button sc-camel-on-click="{{ openRank }}" style="font-size:16px;font-weight:900;background:#ffd23f;border:3px solid #2b1d14;border-radius:999px;padding:8px 18px;box-shadow:3px 3px 0 #2b1d14;color:#2b1d14;" style-active="transform:translate(2px,2px);box-shadow:1px 1px 0 #2b1d14;">排行榜</button>
     <div style="display:flex;align-items:center;gap:8px;background:#fff;border:3px solid #2b1d14;border-radius:999px;padding:8px 16px;font-weight:700;font-size:14px;box-shadow:3px 3px 0 #2b1d14;">
-      <span style="width:10px;height:10px;border-radius:50%;background:#22c55e;border:2px solid #2b1d14;"></span>已連線・亞洲伺服器
+      <span style="width:10px;height:10px;border-radius:50%;background:{{ netDot }};border:2px solid #2b1d14;"></span>{{ netText }}
     </div>
     </div>
   </div>
@@ -3081,29 +3082,19 @@ input{font-family:inherit}
         </div>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <button sc-camel-on-click="{{ createRoom }}" style="flex:1 1 140px;font-size:18px;font-weight:900;color:#fff;background:#ff7a1a;border:3px solid #2b1d14;border-radius:16px;padding:14px;box-shadow:4px 4px 0 #2b1d14;" style-active="transform:translate(3px,3px);box-shadow:1px 1px 0 #2b1d14;">建立房間</button>
-        <button sc-camel-on-click="{{ quickJoin }}" style="flex:1 1 120px;font-size:18px;font-weight:900;color:#2b1d14;background:#ffd23f;border:3px solid #2b1d14;border-radius:16px;padding:14px;box-shadow:4px 4px 0 #2b1d14;" style-active="transform:translate(3px,3px);box-shadow:1px 1px 0 #2b1d14;">快速加入</button>
+        <button sc-camel-on-click="{{ createOnline }}" style="flex:1 1 140px;font-size:18px;font-weight:900;color:#fff;background:#ff7a1a;border:3px solid #2b1d14;border-radius:16px;padding:14px;box-shadow:4px 4px 0 #2b1d14;opacity:{{ onlineBtnOpacity }};" style-active="transform:translate(3px,3px);box-shadow:1px 1px 0 #2b1d14;">建立線上房間</button>
       </div>
       <button sc-camel-on-click="{{ vsCpu }}" style="font-size:18px;font-weight:900;color:#fff;background:#22b8a6;border:3px solid #2b1d14;border-radius:16px;padding:14px;box-shadow:4px 4px 0 #2b1d14;" style-active="transform:translate(3px,3px);box-shadow:1px 1px 0 #2b1d14;">單人對戰電腦</button>
     </div>
 
     <div style="flex:2 1 460px;background:#fff;border:3px solid #2b1d14;border-radius:24px;box-shadow:6px 6px 0 #2b1d14;padding:24px;display:flex;flex-direction:column;gap:14px;min-width:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-        <div style="font-size:22px;font-weight:900;white-space:nowrap;flex-shrink:0;">房間列表</div>
-        <button sc-camel-on-click="{{ refreshRooms }}" style="font-size:14px;font-weight:700;background:#fff;border:3px solid #2b1d14;border-radius:12px;padding:6px 14px;box-shadow:2px 2px 0 #2b1d14;color:#2b1d14;">重新整理</button>
+      <div style="font-size:22px;font-weight:900;">加入好友的房間</div>
+      <div style="font-size:14px;font-weight:600;line-height:1.6;">按「建立線上房間」會得到一組 6 位數房號，把房號傳給朋友，朋友在這裡輸入就能加入同一個房間。</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <input value="{{ joinCode }}" sc-camel-on-change="{{ onJoinCode }}" sc-camel-on-key-down="{{ onJoinKey }}" maxlength="6" inputmode="numeric" placeholder="輸入 6 位數房號" style="flex:1 1 180px;min-width:0;font-family:'Baloo 2',sans-serif;font-size:24px;font-weight:800;letter-spacing:4px;padding:10px 14px;border:3px solid #2b1d14;border-radius:14px;background:#fffaf0;color:#2b1d14;">
+        <button sc-camel-on-click="{{ joinByCode }}" style="flex:0 0 auto;font-size:18px;font-weight:900;background:#22b8a6;color:#fff;border:3px solid #2b1d14;border-radius:14px;padding:10px 24px;box-shadow:3px 3px 0 #2b1d14;opacity:{{ onlineBtnOpacity }};" style-active="transform:translate(2px,2px);box-shadow:1px 1px 0 #2b1d14;">加入</button>
       </div>
-      <sc-for list="{{ roomRows }}" as="r" hint-placeholder-count="6">
-        <div style="display:flex;align-items:center;gap:14px;padding:12px;border:3px solid #2b1d14;border-radius:18px;background:{{ r.bg }};flex-wrap:wrap;">
-          <canvas width="160" height="80" data-thumb="{{ r.theme }}" style="width:80px;height:40px;border-radius:10px;border:2px solid #2b1d14;flex-shrink:0;"></canvas>
-          <div style="flex:1 1 160px;min-width:0;display:flex;flex-direction:column;gap:2px;">
-            <div style="font-size:17px;font-weight:900;">{{ r.name }}</div>
-            <div style="font-size:13px;font-weight:500;">房主 {{ r.host }}・{{ r.themeName }}</div>
-          </div>
-          <div style="font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;">{{ r.players }}</div>
-          <div style="font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;border:2px solid #2b1d14;background:{{ r.statusBg }};">{{ r.status }}</div>
-          <button sc-camel-on-click="{{ r.join }}" style="font-size:15px;font-weight:900;background:#22b8a6;color:#fff;border:3px solid #2b1d14;border-radius:12px;padding:8px 16px;box-shadow:3px 3px 0 #2b1d14;opacity:{{ r.btnOpacity }};" style-active="transform:translate(2px,2px);box-shadow:1px 1px 0 #2b1d14;">加入</button>
-        </div>
-      </sc-for>
+      <div style="font-size:14px;font-weight:800;color:{{ lobbyMsgColor }};min-height:20px;">{{ lobbyMsg }}</div>
     </div>
   </div>
 </div>
@@ -3115,7 +3106,7 @@ input{font-family:inherit}
     <button sc-camel-on-click="{{ leaveRoom }}" style="font-size:15px;font-weight:900;background:#fff;border:3px solid #2b1d14;border-radius:14px;padding:10px 16px;box-shadow:3px 3px 0 #2b1d14;color:#2b1d14;">← 離開</button>
     <div style="flex:1;min-width:200px;">
       <div style="font-size:30px;font-weight:900;line-height:1.1;">{{ roomName }}</div>
-      <div style="font-size:14px;font-weight:700;margin-top:4px;">房號 #{{ roomCode }}・對戰時各隊在本機輪流操作</div>
+      <div style="font-size:14px;font-weight:700;margin-top:4px;">{{ roomSub }}</div>
     </div>
   </div>
   <sc-if value="{{ narrow }}" hint-placeholder-val="{{ false }}">
@@ -3130,7 +3121,7 @@ input{font-family:inherit}
     <div style="flex:1 1 280px;display:{{ pPlayers }};flex-direction:column;gap:12px;background:#fff;border:3px solid #2b1d14;border-radius:24px;box-shadow:6px 6px 0 #2b1d14;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;">
         <div style="font-size:20px;font-weight:900;">玩家</div>
-        <div style="font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;">{{ playerCount }}/6</div>
+        <div style="font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;">{{ playerCount }}/{{ maxSlots }}</div>
       </div>
       <sc-for list="{{ slotRows }}" as="s" hint-placeholder-count="6">
         <div>
@@ -3157,6 +3148,12 @@ input{font-family:inherit}
               <button sc-camel-on-click="{{ addLocal }}" style="font-size:13px;font-weight:700;background:#fff;border:2px solid #2b1d14;border-radius:10px;padding:6px 10px;color:#2b1d14;">+ 本機玩家</button>
               <button sc-camel-on-click="{{ addCpu }}" style="font-size:13px;font-weight:700;background:#d7f5e8;border:2px solid #2b1d14;border-radius:10px;padding:6px 10px;color:#2b1d14;">+ 電腦</button>
               <button sc-camel-on-click="{{ invite }}" style="font-size:13px;font-weight:700;background:#ffd23f;border:2px solid #2b1d14;border-radius:10px;padding:6px 10px;color:#2b1d14;">邀請好友</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ s.waiting }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:8px;padding:14px 10px;border:3px dashed #c9a96e;border-radius:16px;flex-wrap:wrap;">
+              <div style="flex:1;font-size:14px;font-weight:700;color:#8a6a3a;min-width:60px;">等待朋友加入…</div>
+              <div style="font-family:'Baloo 2',sans-serif;font-size:16px;font-weight:800;color:#8a6a3a;">房號 {{ roomCode }}</div>
             </div>
           </sc-if>
         </div>
@@ -3205,7 +3202,7 @@ input{font-family:inherit}
     <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:20px;">
       <div style="background:#fff;border:3px solid #2b1d14;border-radius:24px;box-shadow:6px 6px 0 #2b1d14;padding:20px;display:{{ pRules }};flex-direction:column;gap:16px;">
         <div style="font-size:20px;font-weight:900;">規則</div>
-        <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border:3px solid #2b1d14;border-radius:16px;background:#d7f5e8;">
+        <div style="display:{{ cpuBoxDisplay }};flex-direction:column;gap:10px;padding:12px;border:3px solid #2b1d14;border-radius:16px;background:#d7f5e8;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
             <span style="font-size:15px;font-weight:900;">電腦對手</span>
             <div style="display:flex;align-items:center;gap:8px;">
@@ -3268,7 +3265,7 @@ input{font-family:inherit}
       </div>
 
       <div style="position:sticky;bottom:10px;z-index:5;display:flex;flex-direction:column;gap:6px;background:#fff3d6;border-radius:22px;padding:6px;">
-        <button sc-camel-on-click="{{ startGame }}" style="font-size:24px;font-weight:900;color:#fff;background:{{ startBg }};border:3px solid #2b1d14;border-radius:20px;padding:18px;box-shadow:5px 5px 0 #2b1d14;letter-spacing:2px;" style-active="transform:translate(3px,3px);box-shadow:2px 2px 0 #2b1d14;">開始對戰!</button>
+        <button sc-camel-on-click="{{ startGame }}" style="font-size:24px;font-weight:900;color:#fff;background:{{ startBg }};border:3px solid #2b1d14;border-radius:20px;padding:18px;box-shadow:5px 5px 0 #2b1d14;letter-spacing:2px;" style-active="transform:translate(3px,3px);box-shadow:2px 2px 0 #2b1d14;">{{ startLabel }}</button>
         <div style="font-size:13px;font-weight:700;text-align:center;min-height:18px;">{{ startHint }}</div>
       </div>
     </div>
@@ -3476,19 +3473,6 @@ class Component extends DCLogic {
     penguin: ['冰塊', '黑輪', '燕尾', '雪糕', '滑滑', '啾啾', '鮪魚', '北極'],
     fox: ['火火', '楓葉', '柿子', '狡狡', '尾尾', '橘子', '稻荷', '赤赤']
   };
-  BOTS = [
-    { name: '阿毛', animal: 'hamster' }, { name: '小刺刺', animal: 'hedgehog' }, { name: '兔兔砲手', animal: 'rabbit' },
-    { name: '松果王', animal: 'squirrel' }, { name: '企鵝將軍', animal: 'penguin' }, { name: '狐狸大師', animal: 'fox' }, { name: '甜甜圈', animal: 'rabbit' }
-  ];
-  BOT_LINES = ['大家好!', '這張地圖我很熟', '手下留情啊~', '準備好了!', '誰要跟我結盟?', '今天一定要贏'];
-  ROOMS = [
-    { name: '週五夜砲擊派對', host: '松果王', theme: 'forest', n: 3, playing: false },
-    { name: '新手友善房', host: '企鵝將軍', theme: 'grass', n: 2, playing: false },
-    { name: '月球低重力亂鬥', host: '兔兔砲手', theme: 'moon', n: 5, playing: false },
-    { name: '糖果大戰', host: '甜甜圈', theme: 'candy', n: 6, playing: true },
-    { name: '只准用手榴彈', host: '阿毛', theme: 'desert', n: 4, playing: true },
-    { name: '太空站死鬥', host: '小刺刺', theme: 'station', n: 1, playing: false }
-  ];
   AMMO_STEPS = [-1, 1, 2, 3, 5, 0];
   LV = { easy: '簡單', normal: '普通', hard: '困難' };
   CPUS = [
@@ -3536,7 +3520,8 @@ class Component extends DCLogic {
     screen: 'lobby', nick: '毛球新手', myAnimal: 'hamster', myColor: '#ff7a1a',
     room: { name: '', code: '0000' }, slots: [], theme: 'grass', ammo: null,
     rules: { units: 4, turnTime: 45, gravity: 1, wind: true, water: true, crates: true, fall: true },
-    chat: [], chatInput: '', hud: null, showWeapons: false, winner: null, over: false, rooms: null, engineReady: false, cpuLevel: 'normal', stats: null, rankSort: 'dmg', lastMatch: null, prevScreen: 'lobby', narrow: typeof window !== 'undefined' && window.innerWidth < 760, portrait: typeof window !== 'undefined' && window.innerHeight > window.innerWidth, rotateDismissed: false, roomTab: 'players'
+    chat: [], chatInput: '', hud: null, showWeapons: false, winner: null, over: false, rooms: null, engineReady: false, cpuLevel: 'normal', stats: null, rankSort: 'dmg', lastMatch: null, prevScreen: 'lobby', narrow: typeof window !== 'undefined' && window.innerWidth < 760, portrait: typeof window !== 'undefined' && window.innerHeight > window.innerWidth, rotateDismissed: false, roomTab: 'players',
+    mode: 'local', net: null, joinCode: '', busy: false
   };
   gameRef = React.createRef();
   chatRef = React.createRef();
@@ -3560,13 +3545,64 @@ class Component extends DCLogic {
       } else this.timers.push(setTimeout(poll, 80));
     };
     poll();
+    const pollNet = () => {
+      const N = window.FurballNet;
+      if (!N) { setTimeout(pollNet, 80); return; }
+      this.unsubNet = N.subscribe(net => this.onNet(net));
+      N.connect().catch(() => {});
+    };
+    pollNet();
+  }
+  // ---------- 線上房間（Firebase）
+  onlineRoom() { const n = this.state.net; return this.state.mode === 'online' && n && n.room ? n.room : null; }
+  profile() { return { name: this.state.nick || '毛球新手', animal: this.state.myAnimal, color: this.state.myColor }; }
+  roomSettings() { return { theme: this.state.theme, rules: this.state.rules, ammo: this.state.ammo || {} }; }
+  onNet(net) {
+    const prev = this.state.net, room = net.room, patch = { net };
+    if (room) {
+      // 建立、加入、或重新整理後自動回到房間
+      if (this.state.mode !== 'online' || this.state.screen === 'lobby') { patch.mode = 'online'; patch.screen = 'room'; }
+      if (room.settings && !room.isHost) { patch.theme = room.settings.theme; patch.rules = room.settings.rules; patch.ammo = { ...(this.state.ammo || {}), ...room.settings.ammo }; }
+    } else if (prev && prev.room && this.state.mode === 'online') {
+      patch.mode = 'local'; patch.screen = 'lobby';
+    }
+    this.setState(patch);
+  }
+  async createOnline() {
+    const N = window.FurballNet; if (!N || this.state.busy || !this.state.ammo) return;
+    N.clearMessages(); this.setState({ busy: true });
+    try { await N.createRoom(this.profile(), this.roomSettings()); } catch (e) {} finally { this.setState({ busy: false }); }
+  }
+  async joinByCode() {
+    const N = window.FurballNet; if (!N || this.state.busy) return;
+    N.clearMessages(); this.setState({ busy: true });
+    try { await N.joinRoom(this.state.joinCode, this.profile()); } catch (e) {} finally { this.setState({ busy: false }); }
+  }
+  onStartPressed() {
+    const R0 = this.onlineRoom(), N = window.FurballNet;
+    if (!R0) return this.startGame();
+    if (R0.isHost) {
+      if (R0.status === 'playing') return N.setStatus('waiting');
+      if (R0.players.length >= 2 && R0.players.every(p => p.ready && p.online)) return N.setStatus('playing');
+      return;
+    }
+    if (R0.status !== 'waiting') return;
+    const me = R0.players.find(p => p.isMe); if (me) N.setReady(!me.ready);
   }
   componentDidUpdate(pp, ps) {
     this.paint();
     if (this.state.screen === 'game' && !this.engine) this.ensureEngine();
-    if (ps.chat.length !== this.state.chat.length && this.chatRef.current) this.chatRef.current.scrollTop = 99999;
+    // dc-runtime 不傳 prevState（ps 為 undefined），改由自己記住上一次的值來比較
+    const R0 = this.onlineRoom();
+    const chatLen = (R0 ? R0.chat : this.state.chat).length;
+    if (chatLen !== this.lastChatLen && this.chatRef.current) this.chatRef.current.scrollTop = 99999;
+    this.lastChatLen = chatLen;
+    // 房主修改地形、規則、彈藥時同步到房間
+    const settingsKey = R0 && R0.isHost ? R0.code + JSON.stringify(this.roomSettings()) : null;
+    if (settingsKey && settingsKey !== this.lastSettingsKey) window.FurballNet.updateSettings(this.roomSettings());
+    this.lastSettingsKey = settingsKey;
   }
-  componentWillUnmount() { window.removeEventListener('resize', this.onResize); this.timers.forEach(clearTimeout); if (this.engine) this.engine.destroy(); }
+  componentWillUnmount() { if (this.unsubNet) this.unsubNet(); window.removeEventListener('resize', this.onResize); this.timers.forEach(clearTimeout); if (this.engine) this.engine.destroy(); }
 
   paint() {
     const FE = window.FurballEngine; if (!FE) return;
@@ -3582,38 +3618,11 @@ class Component extends DCLogic {
   }
   me() { return { name: this.state.nick || '毛球新手', animal: this.state.myAnimal }; }
   say(who, text, color) { this.setState(s => ({ chat: [...s.chat.slice(-40), { who, text, color: color || '#2b1d14' }] })); }
-  freeBot() { const names = this.state.slots.map(s => s.name); return this.BOTS.find(b => !names.includes(b.name)); }
-  botJoin(delay) {
-    this.later(delay, () => {
-      if (this.state.screen !== 'room' || this.state.slots.length >= 6) return;
-      const b = this.freeBot(); if (!b) return;
-      const p = this.mkPlayer(b, 'online', false);
-      this.setState(s => ({ slots: [...s.slots, p] }));
-      this.say('系統', `${b.name} 加入了房間`, '#8a6a3a');
-      this.later(900, () => this.say(b.name, this.BOT_LINES[(Math.random() * this.BOT_LINES.length) | 0], p.color));
-      this.later(1600 + Math.random() * 1500, () => this.setState(s => ({ slots: s.slots.map(x => x.id === p.id ? { ...x, ready: true } : x) })));
-    });
-  }
-  createRoom(silent) {
+  // 本機房間（單人對戰電腦、本機多人輪流操作）
+  createRoom() {
     this.timers.forEach(clearTimeout); this.timers = [];
     const me = this.mkPlayer(this.me(), 'you', true); me.color = this.state.myColor;
-    this.setState({ screen: 'room', room: { name: `${this.state.nick || '毛球新手'} 的房間`, code: String(1000 + Math.floor(Math.random() * 9000)) }, slots: [me], chat: [{ who: '系統', text: '房間已建立,等待玩家加入', color: '#8a6a3a' }] }, () => {
-      if (silent !== true) { this.botJoin(1200); this.botJoin(3000); }
-    });
-  }
-  joinRoom(r) {
-    if (r.playing || r.n >= 6) return;
-    this.timers.forEach(clearTimeout); this.timers = [];
-    const host = this.BOTS.find(b => b.name === r.host) || this.BOTS[0];
-    this.setState({ slots: [], theme: r.theme }, () => {
-      const list = [];
-      const push = (b, kind) => { const used = list.map(s => s.color).concat(this.state.myColor); const color = this.COLORS.find(c => !used.includes(c)); list.push({ id: this.uid++, name: b.name, animal: b.animal, color, kind, ready: true }); };
-      push(host, 'host');
-      this.BOTS.filter(b => b.name !== host.name).slice(0, r.n - 1).forEach(b => push(b, 'online'));
-      list.push({ id: this.uid++, ...this.me(), color: this.state.myColor, kind: 'you', ready: true });
-      this.setState({ screen: 'room', room: { name: r.name, code: String(1000 + Math.floor(Math.random() * 9000)) }, slots: list, chat: [{ who: '系統', text: `你加入了「${r.name}」`, color: '#8a6a3a' }] });
-      this.later(800, () => this.say(host.name, '歡迎!準備好就開始吧', list[0].color));
-    });
+    this.setState({ mode: 'local', screen: 'room', room: { name: `${this.state.nick || '毛球新手'} 的房間`, code: String(1000 + Math.floor(Math.random() * 9000)) }, slots: [me], chat: [{ who: '系統', text: '本機房間已建立,可加入本機玩家或電腦', color: '#8a6a3a' }] });
   }
   startGame(force) {
     const { slots, rules } = this.state;
@@ -3648,14 +3657,27 @@ class Component extends DCLogic {
     const touchPref = this.props.touchControls ?? 'auto';
     const isTouch = touchPref === 'on' || (touchPref === 'auto' && typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches);
 
-    const rooms = (st.rooms || this.ROOMS).map(r => ({
-      ...r, themeName: (THEMES.find(t => t.id === r.theme) || {}).name || '', players: `${r.n}/6`,
-      status: r.playing ? '遊戲中' : r.n >= 6 ? '已滿' : '等待中', statusBg: r.playing ? '#ffb3c7' : r.n >= 6 ? '#ddd' : '#b8f0c8',
-      bg: r.playing || r.n >= 6 ? '#f6efe2' : '#fffaf0', btnOpacity: r.playing || r.n >= 6 ? .35 : 1, join: () => this.joinRoom(r)
-    }));
+    const N = window.FurballNet, net = st.net || { status: 'offline', error: null, notice: null }, R0 = this.onlineRoom();
+    const lockSettings = !!(R0 && !R0.isHost);
+    const netOn = net.status === 'online';
+    const netText = { online: N && N.emulator ? '已連線・本機 Emulator' : '已連線・Firebase', connecting: '連線中…', error: '離線・無法連線', offline: '尚未連線' }[net.status] || '';
+    const lobbyMsg = net.error || net.notice || (st.busy ? '處理中…' : '');
 
     const slots = st.slots;
-    const slotRows = Array.from({ length: 6 }, (_, i) => {
+    const onlineRows = R0 ? Array.from({ length: R0.maxPlayers }, (_, i) => {
+      const p = R0.players.find(x => x.seat === i);
+      if (!p) return { filled: false, empty: false, waiting: true };
+      return {
+        filled: true, empty: false, waiting: false, name: p.name, animal: p.animal, color: p.color,
+        badge: p.isMe ? (p.isHost ? '你・房主' : '你') : (p.isHost ? '房主' : '線上'),
+        badgeBg: p.isMe ? '#ffd23f' : '#f1e4ff',
+        readyText: !p.online ? '離線' : p.ready ? '已準備' : '準備中…', readyBg: !p.online ? '#ddd' : p.ready ? '#b8f0c8' : '#fff',
+        canRemove: R0.isHost && !p.isMe, cycleTip: p.isMe ? '點擊更換動物' : this.ANAME[p.animal],
+        remove: () => N.kick(p.uid),
+        cycle: () => { if (!p.isMe) return; const nx = this.ANIMALS[(this.ANIMALS.indexOf(p.animal) + 1) % 6]; this.setState({ myAnimal: nx }); N.updateProfile({ name: p.name, animal: nx, color: p.color }); }
+      };
+    }) : null;
+    const slotRows = onlineRows || Array.from({ length: 6 }, (_, i) => {
       const p = slots[i];
       if (!p) return { filled: false, empty: true };
       const local = p.kind === 'you' || p.kind === 'local' || p.kind === 'cpu';
@@ -3670,10 +3692,25 @@ class Component extends DCLogic {
       };
     });
 
-    const R = st.rules, setR = (k, v) => this.setState(s => ({ rules: { ...s.rules, [k]: v } }));
+    const R = st.rules, setR = (k, v) => { if (lockSettings) return; this.setState(s => ({ rules: { ...s.rules, [k]: v } })); };
     const seg = (opts, key) => opts.map(([label, v]) => ({ label, bg: R[key] === v ? '#2b1d14' : '#fff', fg: R[key] === v ? '#fff' : '#2b1d14', pick: () => setR(key, v) }));
     const notReady = slots.filter(s => !s.ready).length;
     const canStart = slots.length >= 2 && notReady === 0;
+    let startLabel = '開始對戰!', startBg = canStart ? '#ff7a1a' : '#c9b89a';
+    let startHint = slots.length < 2 ? '至少需要 2 隊才能開始' : notReady ? `等待 ${notReady} 位玩家準備…` : `${slots.length} 隊・每隊 ${R.units} 隻・${theme ? theme.name : ''}`;
+    if (R0) {
+      const waitN = R0.players.filter(p => !p.ready || !p.online).length, me = R0.players.find(p => p.isMe);
+      if (R0.status === 'playing') {
+        startLabel = R0.isHost ? '結束對戰' : '對戰進行中'; startBg = R0.isHost ? '#ff7a1a' : '#c9b89a';
+        startHint = '連線對戰畫面將於 M3 開放;目前只同步「已開始」狀態';
+      } else if (R0.isHost) {
+        startBg = R0.players.length >= 2 && waitN === 0 ? '#ff7a1a' : '#c9b89a';
+        startHint = R0.players.length < 2 ? `把房號 ${R0.code} 傳給朋友` : waitN ? `等待 ${waitN} 位玩家準備…` : '全員已準備,可以開始!';
+      } else {
+        startLabel = me && me.ready ? '取消準備' : '準備!'; startBg = me && me.ready ? '#c9b89a' : '#22b8a6';
+        startHint = me && me.ready ? '等待房主開始…' : '準備好就按下去';
+      }
+    }
 
     const h = st.hud, ht = h ? h.teams[h.turn] : null;
     const ammo = h ? h.ammo : {};
@@ -3687,29 +3724,36 @@ class Component extends DCLogic {
       onNick: e => this.setState({ nick: e.target.value }),
       animalOpts: this.ANIMALS.map(a => ({ key: a, name: this.ANAME[a], bg: st.myAnimal === a ? '#ffd23f' : '#fffaf0', shadow: st.myAnimal === a ? '3px 3px 0 #2b1d14' : 'none', pick: () => this.setState({ myAnimal: a }) })),
       colorOpts: this.COLORS.map(c => ({ color: c, shadow: st.myColor === c ? '0 0 0 3px #fff, 0 0 0 6px #2b1d14' : 'none', pick: () => this.setState({ myColor: c }) })),
-      createRoom: () => this.createRoom(),
-      quickJoin: () => { const r = this.ROOMS.find(r => !r.playing && r.n < 6); r ? this.joinRoom(r) : this.createRoom(); },
-      refreshRooms: () => this.setState({ rooms: this.ROOMS.map(r => ({ ...r, n: r.playing ? r.n : Math.max(1, Math.min(6, r.n + Math.round(Math.random() * 2 - 1))) })) }),
-      roomRows: rooms,
+      netText, netDot: netOn ? '#22c55e' : net.status === 'error' ? '#e53935' : '#ffd23f',
+      createOnline: () => this.createOnline(),
+      onlineBtnOpacity: netOn && !st.busy ? 1 : .5,
+      joinCode: st.joinCode,
+      onJoinCode: e => this.setState({ joinCode: e.target.value.replace(/\D/g, '').slice(0, 6) }),
+      onJoinKey: e => { if (e.key === 'Enter') this.joinByCode(); },
+      joinByCode: () => this.joinByCode(),
+      lobbyMsg, lobbyMsgColor: net.error ? '#e53935' : '#8a6a3a',
 
-      roomName: st.room.name, roomCode: st.room.code, playerCount: slots.length, slotRows,
-      leaveRoom: () => { this.timers.forEach(clearTimeout); this.timers = []; this.setState({ screen: 'lobby' }); },
+      roomName: R0 ? `${(R0.players.find(p => p.isHost) || { name: '' }).name} 的房間` : st.room.name,
+      roomCode: R0 ? R0.code : st.room.code,
+      roomSub: R0 ? `房號 ${R0.code}・${R0.isHost ? '把房號傳給朋友就能加入' : '線上房間'}${lockSettings ? '・設定由房主決定' : ''}` : `房號 #${st.room.code}・對戰時各隊在本機輪流操作`,
+      playerCount: R0 ? R0.players.length : slots.length, maxSlots: R0 ? R0.maxPlayers : 6, slotRows,
+      cpuBoxDisplay: R0 ? 'none' : 'flex',
+      leaveRoom: () => { this.timers.forEach(clearTimeout); this.timers = []; if (R0) N.leaveRoom(); this.setState({ screen: 'lobby', mode: 'local' }); },
       addLocal: () => { if (slots.length >= 6) return; const n = slots.filter(s => s.kind === 'local').length + 2; const used = slots.map(s => s.animal); const a = this.ANIMALS.find(x => !used.includes(x)) || 'hamster'; this.setState(s => ({ slots: [...s.slots, this.mkPlayer({ name: `本機玩家 ${n}`, animal: a }, 'local', true)] })); },
-      invite: () => { this.say('系統', '邀請已送出…', '#8a6a3a'); this.botJoin(900); },
+      invite: () => this.say('系統', '本機房間只能加入本機玩家或電腦;要和朋友連線,請回大廳按「建立線上房間」', '#8a6a3a'),
       themeName: theme ? theme.name : '',
-      terrainRows: THEMES.map(t => ({ id: t.id, name: t.name, tag: t.grav < 1 ? `低重力 ×${t.grav}` : '', bg: st.theme === t.id ? '#ffd23f' : '#fffaf0', shadow: st.theme === t.id ? '4px 4px 0 #2b1d14' : 'none', lift: st.theme === t.id ? 'translate(-2px,-2px)' : 'none', select: () => this.setState({ theme: t.id }) })),
-      weaponRows: WEAPONS.map(w => { const a = st.ammo ? st.ammo[w.id] : w.ammo; return { ...w, ammoText: ammoText(a), opacity: a === 0 ? .45 : 1, ammoBg: a === 0 ? '#ddd' : a === -1 ? '#ffd23f' : '#fff', toggle: () => { const i = this.AMMO_STEPS.indexOf(a); const nx = this.AMMO_STEPS[(i + 1) % this.AMMO_STEPS.length]; this.setState(s => ({ ammo: { ...s.ammo, [w.id]: nx } })); } }; }),
+      terrainRows: THEMES.map(t => ({ id: t.id, name: t.name, tag: t.grav < 1 ? `低重力 ×${t.grav}` : '', bg: st.theme === t.id ? '#ffd23f' : '#fffaf0', shadow: st.theme === t.id ? '4px 4px 0 #2b1d14' : 'none', lift: st.theme === t.id ? 'translate(-2px,-2px)' : 'none', select: () => { if (!lockSettings) this.setState({ theme: t.id }); } })),
+      weaponRows: WEAPONS.map(w => { const a = st.ammo ? st.ammo[w.id] : w.ammo; return { ...w, ammoText: ammoText(a), opacity: a === 0 ? .45 : 1, ammoBg: a === 0 ? '#ddd' : a === -1 ? '#ffd23f' : '#fff', toggle: () => { if (lockSettings) return; const i = this.AMMO_STEPS.indexOf(a); const nx = this.AMMO_STEPS[(i + 1) % this.AMMO_STEPS.length]; this.setState(s => ({ ammo: { ...s.ammo, [w.id]: nx } })); } }; }),
       units: R.units, unitsDec: () => setR('units', Math.max(FE.BALANCE.HP.unitsPerTeamMin, R.units - 1)), unitsInc: () => setR('units', Math.min(FE.BALANCE.HP.unitsPerTeamMax, R.units + 1)),
       timeOpts: seg([['30', 30], ['45', 45], ['60', 60], ['90', 90], ['∞', 0]], 'turnTime'),
       gravOpts: seg([['低', .6], ['標準', 1], ['高', 1.4]], 'gravity'),
       toggleRows: [['風向影響', 'wind'], ['水位上升', 'water'], ['空投補給箱', 'crates'], ['掉落傷害', 'fall']].map(([label, k]) => ({ label, bg: R[k] ? '#22b8a6' : '#e5dccb', knob: R[k] ? '24px' : '2px', toggle: () => setR(k, !R[k]) })),
-      chatRef: this.chatRef, chatRows: st.chat, chatInput: st.chatInput,
+      chatRef: this.chatRef, chatRows: R0 ? R0.chat : st.chat, chatInput: st.chatInput,
       onChatInput: e => this.setState({ chatInput: e.target.value }),
       sendChat: () => this.sendChat(),
       onChatKey: e => { if (e.key === 'Enter') this.sendChat(); },
-      startGame: () => this.startGame(),
-      startBg: canStart ? '#ff7a1a' : '#c9b89a',
-      startHint: slots.length < 2 ? '至少需要 2 隊才能開始' : notReady ? `等待 ${notReady} 位玩家準備…` : `${slots.length} 隊・每隊 ${R.units} 隻・${theme ? theme.name : ''}`,
+      startGame: () => this.onStartPressed(),
+      startBg, startHint, startLabel,
 
       gameRef: this.gameRef,
       leaveGame: () => { this.stopEngine(); this.setState({ screen: 'room', hud: null, over: false, showWeapons: false }); },
@@ -3784,9 +3828,8 @@ class Component extends DCLogic {
   sendChat() {
     const t = this.state.chatInput.trim(); if (!t) return;
     this.setState({ chatInput: '' });
+    if (this.onlineRoom()) { window.FurballNet.sendChat(t); return; }
     this.say(this.state.nick || '我', t, this.state.myColor);
-    const bots = this.state.slots.filter(s => s.kind === 'online' || s.kind === 'host');
-    if (bots.length && Math.random() < .7) { const b = bots[(Math.random() * bots.length) | 0]; this.later(1000 + Math.random() * 1200, () => this.say(b.name, ['哈哈', '同意!', '等等炸你', '好喔', '+1'][(Math.random() * 5) | 0], b.color)); }
   }
 }
 </script>

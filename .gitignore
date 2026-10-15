@@ -5,3 +5,7 @@ coverage/
 *.log
 .firebase/
 .smoke/
+firebase-debug.log
+database-debug.log
+ui-debug.log
+*-debug.log

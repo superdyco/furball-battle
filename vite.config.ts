@@ -6,6 +6,7 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/rules/**', 'tests/e2e/**', 'node_modules/**'],
     testTimeout: 120_000,
   },
 });
